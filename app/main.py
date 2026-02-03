@@ -1,0 +1,40 @@
+from fastapi import FastAPI, Depends
+from app.schemas import HoneypotRequest, HoneypotResponse, ExtractedIntelligence
+from app.auth import verify_api_key
+from app.detector import detect_scam
+from app.extractor import extract_intelligence
+from app.agent import agent_decision, calculate_risk
+
+app = FastAPI(title="Agentic Honeypot API")
+
+
+@app.post("/api/honeypot/analyze", response_model=HoneypotResponse)
+def analyze_message(
+    payload: HoneypotRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    detection = detect_scam(payload.message)
+
+    # 🟢 If NOT a scam → return early
+    if not detection.get("is_scam"):
+        return {
+            "scam_detected": False,
+            "confidence": detection.get("confidence", 0.1),
+            "message": "No scam indicators detected",
+            "status": "success"
+        }
+
+    # 🔴 Scam detected → extract intelligence
+    intel = extract_intelligence(payload.message)
+    agent_meta = agent_decision(detection.get("scam_type"))
+    risk = calculate_risk(intel)
+
+    return {
+        "scam_detected": True,
+        "scam_type": detection.get("scam_type"),
+        "confidence": detection.get("confidence"),
+        "extracted_intelligence": intel,
+        "agent_metadata": agent_meta,
+        "risk_score": risk,
+        "status": "success"
+    }

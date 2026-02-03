@@ -59,9 +59,10 @@ def analyze_message(
         }
 
     # 🔴 Scam detected → extract intelligence
+    scam_type = detection.get("scam_type")
     intel = extract_intelligence(message)
-    agent_meta = agent_decision(detection.get("scam_type"))
-    risk = calculate_risk(intel)
+    risk = calculate_risk(intel, scam_type)
+    agent_meta = agent_decision(scam_type, risk)
 
     return {
         "scam_detected": True,

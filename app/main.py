@@ -19,12 +19,35 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 
+# Constants for input safety
+MAX_MESSAGE_LENGTH = 5000
+
+
 @app.post("/api/honeypot/analyze", response_model=HoneypotResponse)
 def analyze_message(
     payload: HoneypotRequest,
     api_key: str = Depends(verify_api_key)
 ):
-    detection = detect_scam(payload.message)
+    # === Input Safety Guards ===
+    # Ensure message is a string and normalize whitespace
+    raw_message = payload.message if isinstance(payload.message, str) else ""
+    message = raw_message.strip()
+
+    # Handle empty or whitespace-only messages
+    if not message:
+        return {
+            "scam_detected": False,
+            "confidence": 0.1,
+            "message": "No scam indicators detected",
+            "status": "success"
+        }
+
+    # Handle excessively long messages (truncate safely)
+    if len(message) > MAX_MESSAGE_LENGTH:
+        message = message[:MAX_MESSAGE_LENGTH]
+
+    # === Core Analysis ===
+    detection = detect_scam(message)
 
     # 🟢 If NOT a scam → return early
     if not detection.get("is_scam"):
@@ -36,7 +59,7 @@ def analyze_message(
         }
 
     # 🔴 Scam detected → extract intelligence
-    intel = extract_intelligence(payload.message)
+    intel = extract_intelligence(message)
     agent_meta = agent_decision(detection.get("scam_type"))
     risk = calculate_risk(intel)
 

@@ -1,11 +1,22 @@
 from fastapi import FastAPI, Depends
+from fastapi.exceptions import HTTPException, RequestValidationError
 from app.schemas import HoneypotRequest, HoneypotResponse, ExtractedIntelligence
 from app.auth import verify_api_key
 from app.detector import detect_scam
 from app.extractor import extract_intelligence
 from app.agent import agent_decision, calculate_risk
+from app.errors import (
+    http_exception_handler,
+    validation_exception_handler,
+    generic_exception_handler,
+)
 
 app = FastAPI(title="Agentic Honeypot API")
+
+# Register global exception handlers
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 
 @app.post("/api/honeypot/analyze", response_model=HoneypotResponse)
